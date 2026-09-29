@@ -1,0 +1,6 @@
+{
+  "routes": [
+    { "path": "/", "title": "Daily ledger" },
+    { "path": "/settings", "title": "Cost settings" }
+  ]
+}

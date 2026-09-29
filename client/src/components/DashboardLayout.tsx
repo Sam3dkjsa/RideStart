@@ -21,15 +21,15 @@ import {
 } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Settings2 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Page 1", path: "/" },
-  { icon: Users, label: "Page 2", path: "/some-path" },
+  { icon: LayoutDashboard, label: "Daily ledger", path: "/" },
+  { icon: Settings2, label: "Cost settings", path: "/settings" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -168,8 +168,9 @@ function DashboardLayoutContent({
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold tracking-tight truncate">
-                    Navigation
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    <img src="/rideledger-mark.svg" alt="" className="h-7 w-7 rounded-md border border-sidebar-border" />
+                    <span className="font-semibold tracking-tight truncate">RideLedger</span>
                   </span>
                 </div>
               ) : null}
@@ -246,11 +247,10 @@ function DashboardLayoutContent({
             <div className="flex items-center gap-2">
               <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />
               <div className="flex items-center gap-3">
-                <div className="flex flex-col gap-1">
-                  <span className="tracking-tight text-foreground">
-                    {activeMenuItem?.label ?? "Menu"}
-                  </span>
-                </div>
+                  <div className="flex items-center gap-2.5">
+                    <img src="/rideledger-mark.svg" alt="" className="h-6 w-6 rounded-md border border-sidebar-border" />
+                    <span className="tracking-tight text-foreground">{activeMenuItem?.label ?? "RideLedger"}</span>
+                  </div>
               </div>
             </div>
           </div>
