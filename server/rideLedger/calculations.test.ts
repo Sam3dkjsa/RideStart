@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildRideTrendSeries,
   calculateRideCosts,
   dateRangeSchema,
   decimalToScaledInt,
@@ -23,6 +24,32 @@ const entry = {
   platformFees: 100,
   otherCosts: 200,
 };
+
+const sampleRideRows = [
+  {
+    rideDate: "2026-09-20",
+    input: { ridesCompleted: 12, distanceKm: 100, grossEarnings: 1_000, platformFees: 100, otherCosts: 200 },
+    assumptions: { vehicleEfficiencyKmPerLiter: 25, fuelPricePerLiter: 100, maintenanceReservePerKm: 1.25 },
+  },
+  {
+    rideDate: "2026-09-21",
+    input: { ridesCompleted: 8, distanceKm: 80, grossEarnings: 1_200, platformFees: 120, otherCosts: 80 },
+    assumptions: { vehicleEfficiencyKmPerLiter: 20, fuelPricePerLiter: 100, maintenanceReservePerKm: 1.25 },
+  },
+  {
+    rideDate: "2026-09-22",
+    input: { ridesCompleted: 15, distanceKm: 150, grossEarnings: 900, platformFees: 90, otherCosts: 250 },
+    assumptions: { vehicleEfficiencyKmPerLiter: 30, fuelPricePerLiter: 100, maintenanceReservePerKm: 1.25 },
+  },
+].map(({ rideDate, input, assumptions }) => ({
+  rideDate,
+  ridesCompleted: input.ridesCompleted,
+  distanceKm: normalizeDecimal(input.distanceKm, 2),
+  grossEarnings: normalizeDecimal(input.grossEarnings, 2),
+  platformFees: normalizeDecimal(input.platformFees, 2),
+  otherCosts: normalizeDecimal(input.otherCosts, 2),
+  ...calculateRideCosts(input, assumptions),
+}));
 
 describe("RideLedger calculations", () => {
   it("uses distance / efficiency, fuel price, maintenance reserve, and the exact net-profit formula", () => {
@@ -62,6 +89,33 @@ describe("RideLedger calculations", () => {
     expect(normalizeDecimal(1.005, 2)).toBe("1.01");
     expect(sumDecimalValues(["0.10", "0.20", "1.05"], 2)).toBe("1.35");
     expect(decimalToScaledInt("0.001", 3)).toBe(1n);
+  });
+});
+
+describe("RideLedger dashboard trend fixtures", () => {
+  it("plots sample daily net profit and estimated km/L in chronological order", () => {
+    expect(buildRideTrendSeries([...sampleRideRows].reverse())).toEqual([
+      { date: "2026-09-20", netProfit: 175, efficiencyKmPerLiter: 25 },
+      { date: "2026-09-21", netProfit: 500, efficiencyKmPerLiter: 20 },
+      { date: "2026-09-22", netProfit: -127.5, efficiencyKmPerLiter: 30 },
+    ]);
+  });
+
+  it("matches summary cards to the sample entries' calculated money and fuel totals", () => {
+    expect(sampleRideRows.reduce((total, row) => total + row.ridesCompleted, 0)).toBe(35);
+    expect(sumDecimalValues(sampleRideRows.map(row => row.distanceKm), 2)).toBe("330.00");
+    expect(sumDecimalValues(sampleRideRows.map(row => row.grossEarnings), 2)).toBe("3100.00");
+    expect(sumDecimalValues(sampleRideRows.map(row => row.platformFees), 2)).toBe("310.00");
+    expect(sumDecimalValues(sampleRideRows.map(row => row.otherCosts), 2)).toBe("530.00");
+    expect(sumDecimalValues(sampleRideRows.map(row => row.netProfit), 2)).toBe("547.50");
+    expect(sumDecimalValues(sampleRideRows.map(row => row.fuelCost), 2)).toBe("1300.00");
+    expect(sumDecimalValues(sampleRideRows.map(row => row.maintenanceReserve), 2)).toBe("412.50");
+    expect(sumDecimalValues(sampleRideRows.map(row => row.fuelLiters), 3)).toBe("13.000");
+  });
+
+  it("omits a km/L point when a zero-distance day has no calculated fuel use", () => {
+    expect(buildRideTrendSeries([{ rideDate: "2026-09-23", distanceKm: "0.00", fuelLiters: "0.000", netProfit: "25.00" }]))
+      .toEqual([{ date: "2026-09-23", netProfit: 25, efficiencyKmPerLiter: null }]);
   });
 });
 

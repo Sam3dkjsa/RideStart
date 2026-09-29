@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { ArrowDownToLine, ArrowUpRight, Bike, CalendarRange, ChartNoAxesCombined, CircleDollarSign, Fuel, Gauge, Pencil, Plus, Route, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import DailyEntryForm from "@/components/rideledger/DailyEntryForm";
 import { trpc } from "@/lib/trpc";
 import { downloadLedgerCsv, formatCalendarDate, formatCurrency, formatQuantity, type LedgerRecord } from "@/lib/rideLedger";
-import { sumDecimalValues } from "@shared/rideLedger";
+import { buildRideTrendSeries, sumDecimalValues } from "@shared/rideLedger";
 
 function localToday() {
   const now = new Date();
@@ -71,13 +71,8 @@ export default function Dashboard() {
     net: sumDecimalValues(entries.map(entry => entry.netProfit), 2),
   }), [entries]);
 
-  const chartData = useMemo(() => [...entries]
-    .sort((a, b) => a.rideDate.localeCompare(b.rideDate))
-    .map(entry => ({
-      date: entry.rideDate,
-      gross: Number(entry.grossEarnings),
-      net: Number(entry.netProfit),
-    })), [entries]);
+  const chartData = useMemo(() => buildRideTrendSeries(entries), [entries]);
+  const fuelTrendData = chartData.filter(point => point.efficiencyKmPerLiter !== null);
 
   async function exportCsv() {
     try {
@@ -150,38 +145,65 @@ export default function Dashboard() {
 
       <div className="rl-dashboard-grid">
         <div className="rl-dashboard-main">
-          <section className="rl-card rl-chart-card">
-            <div className="rl-card-heading">
-              <div><p className="rl-overline">PERFORMANCE</p><h2>Gross to net</h2></div>
-              <span className="rl-period-pill">{entries.length} {entries.length === 1 ? "day" : "days"}</span>
-            </div>
-            {chartData.length ? (
-              <div className="rl-chart-wrap" role="img" aria-label="Gross earnings and net profit by day from your saved entries">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 8, right: 5, bottom: 0, left: 0 }}>
-                    <defs>
-                      <linearGradient id="netFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#69D6B4" stopOpacity={0.25} /><stop offset="95%" stopColor="#69D6B4" stopOpacity={0} /></linearGradient>
-                      <linearGradient id="grossFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#F1B567" stopOpacity={0.17} /><stop offset="95%" stopColor="#F1B567" stopOpacity={0} /></linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="rgba(177, 205, 199, .10)" vertical={false} />
-                    <XAxis dataKey="date" tickFormatter={value => formatCalendarDate(String(value), { year: undefined, day: "numeric", month: "short" })} tick={{ fill: "#94AAA8", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={24} />
-                    <YAxis tickFormatter={value => new Intl.NumberFormat("en-IN", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value))} tick={{ fill: "#94AAA8", fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
-                    <Tooltip
-                      contentStyle={{ background: "#182A2D", border: "1px solid #315052", borderRadius: 12, color: "#EEF5F3" }}
-                      labelStyle={{ color: "#A8BFBA", marginBottom: 4 }}
-                      labelFormatter={value => formatCalendarDate(String(value))}
-                      formatter={(value, name) => [formatCurrency(Number(value ?? 0), currency), name === "net" ? "Net profit" : "Gross earnings"]}
-                    />
-                    <Legend verticalAlign="top" align="right" height={30} formatter={value => value === "net" ? "Net profit" : "Gross earnings"} wrapperStyle={{ color: "#AFC0BD", fontSize: 12 }} />
-                    <Area type="monotone" dataKey="gross" stroke="#F1B567" strokeWidth={2} fill="url(#grossFill)" activeDot={{ r: 4 }} />
-                    <Area type="monotone" dataKey="net" stroke="#69D6B4" strokeWidth={2.5} fill="url(#netFill)" activeDot={{ r: 4 }} />
-                  </AreaChart>
-                </ResponsiveContainer>
+          <div className="rl-chart-pair">
+            <section className="rl-card rl-chart-card">
+              <div className="rl-card-heading">
+                <div><p className="rl-overline">PROFITABILITY</p><h2>Net profit trend</h2></div>
+                <span className="rl-period-pill">{entries.length} {entries.length === 1 ? "day" : "days"}</span>
               </div>
-            ) : (
-              <div className="rl-chart-empty"><div className="rl-empty-icon"><ChartNoAxesCombined size={23} /></div><strong>No saved days in this period</strong><span>Log a workday to see your real gross-to-net trend.</span></div>
-            )}
-          </section>
+              {chartData.length ? (
+                <div className="rl-chart-wrap" role="img" aria-label="Net profit by day from your saved entries">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 8, right: 5, bottom: 0, left: 0 }}>
+                      <defs>
+                        <linearGradient id="netFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#69D6B4" stopOpacity={0.25} /><stop offset="95%" stopColor="#69D6B4" stopOpacity={0} /></linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="rgba(177, 205, 199, .10)" vertical={false} />
+                      <XAxis dataKey="date" tickFormatter={value => formatCalendarDate(String(value), { year: undefined, day: "numeric", month: "short" })} tick={{ fill: "#94AAA8", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={24} />
+                      <YAxis tickFormatter={value => new Intl.NumberFormat("en-IN", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value))} tick={{ fill: "#94AAA8", fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
+                      <Tooltip
+                        contentStyle={{ background: "#182A2D", border: "1px solid #315052", borderRadius: 12, color: "#EEF5F3" }}
+                        labelStyle={{ color: "#A8BFBA", marginBottom: 4 }}
+                        labelFormatter={value => formatCalendarDate(String(value))}
+                        formatter={value => [formatCurrency(Number(value ?? 0), currency), "Net profit"]}
+                      />
+                      <Area type="monotone" dataKey="netProfit" name="Net profit" stroke="#69D6B4" strokeWidth={2.5} fill="url(#netFill)" activeDot={{ r: 4 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="rl-chart-empty"><div className="rl-empty-icon"><ChartNoAxesCombined size={23} /></div><strong>No saved days in this period</strong><span>Log a workday to see your net-profit trend.</span></div>
+              )}
+            </section>
+
+            <section className="rl-card rl-chart-card">
+              <div className="rl-card-heading">
+                <div><p className="rl-overline">FUEL ECONOMY</p><h2>Fuel efficiency · km/L</h2></div>
+                <span className="rl-period-pill">{fuelTrendData.length} {fuelTrendData.length === 1 ? "day" : "days"}</span>
+              </div>
+              <p className="rl-chart-caption">Estimated from each saved day’s distance and calculated fuel liters.</p>
+              {fuelTrendData.length ? (
+                <div className="rl-chart-wrap" role="img" aria-label="Estimated fuel efficiency in kilometers per liter by day from saved entries">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={fuelTrendData} margin={{ top: 8, right: 5, bottom: 0, left: 0 }}>
+                      <CartesianGrid stroke="rgba(177, 205, 199, .10)" vertical={false} />
+                      <XAxis dataKey="date" tickFormatter={value => formatCalendarDate(String(value), { year: undefined, day: "numeric", month: "short" })} tick={{ fill: "#94AAA8", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={24} />
+                      <YAxis tickFormatter={value => formatQuantity(Number(value), 1)} tick={{ fill: "#94AAA8", fontSize: 11 }} axisLine={false} tickLine={false} width={42} />
+                      <Tooltip
+                        contentStyle={{ background: "#182A2D", border: "1px solid #315052", borderRadius: 12, color: "#EEF5F3" }}
+                        labelStyle={{ color: "#A8BFBA", marginBottom: 4 }}
+                        labelFormatter={value => formatCalendarDate(String(value))}
+                        formatter={value => [`${formatQuantity(Number(value ?? 0), 2)} km/L`, "Estimated efficiency"]}
+                      />
+                      <Line type="monotone" dataKey="efficiencyKmPerLiter" name="Estimated efficiency" stroke="#F1B567" strokeWidth={2.5} dot={{ r: 3, fill: "#F1B567", strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="rl-chart-empty"><div className="rl-empty-icon"><Fuel size={23} /></div><strong>No fuel estimates in this period</strong><span>Log a day with distance traveled to see the trend.</span></div>
+              )}
+            </section>
+          </div>
 
           <section className="rl-breakdown-grid" aria-label="Date-range cost summary">
             <StatCard label="Platform fees" value={formatCurrency(totals.fees, currency)} icon={ArrowDownToLine} tone="neutral" />

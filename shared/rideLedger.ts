@@ -128,6 +128,36 @@ export function calculateRideCosts(
   };
 }
 
+export type RideTrendEntry = {
+  rideDate: string;
+  distanceKm: number | string;
+  fuelLiters: number | string;
+  netProfit: number | string;
+};
+
+export type RideTrendPoint = {
+  date: string;
+  netProfit: number;
+  efficiencyKmPerLiter: number | null;
+};
+
+/** Build chronological chart points from saved entries; efficiency is an estimate from distance / calculated fuel liters. */
+export function buildRideTrendSeries(entries: readonly RideTrendEntry[]): RideTrendPoint[] {
+  return [...entries]
+    .sort((left, right) => left.rideDate.localeCompare(right.rideDate))
+    .map(entry => {
+      const distance = Number(entry.distanceKm);
+      const liters = Number(entry.fuelLiters);
+      return {
+        date: entry.rideDate,
+        netProfit: Number(entry.netProfit),
+        efficiencyKmPerLiter: Number.isFinite(distance) && Number.isFinite(liters) && liters > 0
+          ? Number((distance / liters).toFixed(2))
+          : null,
+      };
+    });
+}
+
 export function sumDecimalValues(values: Array<number | string>, scale: number): string {
   const total = values.reduce((sum, value) => sum + decimalToScaledInt(value, scale), 0n);
   return scaledIntToDecimal(total, scale);

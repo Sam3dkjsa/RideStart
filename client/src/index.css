@@ -140,6 +140,8 @@ input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible
 .rl-chart-empty { height: 248px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; text-align: center; color: #aabdb9; }
 .rl-chart-empty strong { color: #e7efed; font-size: .88rem; }
 .rl-chart-empty span { color: #8da5a1; font-size: .75rem; }
+.rl-chart-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.rl-chart-caption { color: #91a9a4; font-size: .68rem; line-height: 1.4; margin: -.1rem 0 .2rem; }
 .rl-empty-icon { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #315052; background: #1c3336; border-radius: 15px; color: #83d9bc; }
 .rl-breakdown-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
 .rl-breakdown-grid .rl-stat-card { padding: .82rem .9rem; }
@@ -229,6 +231,9 @@ input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible
   .rl-settings-grid { grid-template-columns: minmax(0, 1fr); }
   .rl-settings-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rl-settings-side .rl-settings-security { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .rl-chart-pair { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
   .rl-page { padding: .95rem .78rem 2rem; }
